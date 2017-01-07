@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Hospitality Authcache feature.
+ */
+
+include_once 'hospitality_authcache.features.inc';

@@ -1,0 +1,4 @@
+name = FB News Feed
+description = FB News Syndication 2.0
+package = FB
+core = 7.x

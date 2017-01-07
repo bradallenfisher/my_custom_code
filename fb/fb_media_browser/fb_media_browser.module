@@ -1,0 +1,291 @@
+<?php
+
+define('FB_MEDIA_BROWSER_VIEW_TAG', 'fb_media_browser');
+define('FB_MEDIA_BROWSER_SUBMIT_BUTTON_SELECTOR', 'input[type="submit"]');
+
+//This is because the fb media view is not treated as an admin page.
+function fb_media_browser_custom_theme() {
+  if (arg(0) == 'fb_media_image_library') {
+    return 'seven';
+  }
+}
+
+/**
+ * Implements hook_init().
+ */
+function fb_media_browser_init() {
+  if ('fb_media_image_library' == $_GET['q']) {
+    module_invoke('admin_menu', 'suppress');
+
+    $path = drupal_get_path('module', 'fb_media_browser');
+    drupal_add_js($path . '/fb_media_browser.js');
+    drupal_add_css($path . '/fb_media_browser.modal.css');
+  }
+  if('node/add/image-request' == $_GET['q']) {
+    $path = drupal_get_path('module', 'fb_media_browser');
+    drupal_add_css($path . '/iframe.css');
+  }
+}
+
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function fb_media_browser_module_implements_alter(&$implementations, $hook) {
+  $module = 'fb_media_browser';
+
+  // These go last.
+  if (in_array($hook, array('menu_alter', 'form_alter', 'form_field_ui_field_edit_form_alter'))) {
+    if (isset($implementations[$module])) {
+      $group = $implementations[$module];
+      unset($implementations[$module]);
+      $implementations[$module] = $group;
+    }
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function fb_media_browser_menu() {
+  $items['admin/config/media/fb-media-browser'] = array(
+    'title' => 'FB Media Browser Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fb_media_browser_settings_form'),
+    'file' => 'fb_media_browser.admin.inc',
+    'access arguments' => array('administer site configuration'),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function fb_media_browser_menu_alter(&$items) {
+  if (isset($items['fb_media_image_library'])) {
+    $items['fb_media_image_library']['delivery callback'] = 'fb_media_browser_return_view';
+  }
+  $items['node/add/image-request']['title'] = 'Image Request';
+  $items['node/add/image-request']['page callback'] = '_image_request_page';
+//dpm($items);
+}
+
+
+function _image_request_page() {
+  return '<iframe src="https://fandbmedia.auth.abs.vmhost.psu.edu/login/cosign?redirect_url=https://fandbmedia.auth.abs.vmhost.psu.edu/node/add/image-request"></iframe>';
+}
+
+/**
+ * Delivery callback for Ajax request.
+ */
+function fb_media_browser_return_view($html) {
+  if (isset($_GET['raw'])) {
+    echo $html;
+    drupal_page_footer();
+  }
+  else {
+    return drupal_deliver_html_page($html);
+  }
+}
+
+/**
+ * Implements hook_file_download().
+ */
+function fb_media_browser_file_download($uri) {
+  if (variable_get('fb_media_browser_public_is_public', 0)) {
+    if (file_uri_scheme($uri) == 'public') {
+      return array('X-Visual-Select-File' => 'Yes');
+    }
+  }
+}
+
+/**
+ * Implements template_preprocess_views_view_grid().
+ */
+function fb_media_browser_preprocess_views_view_grid(&$vars) {
+  $view = $vars['view'];
+  if (_fb_media_browser_view_has_tag($view)) {
+    $remove_absolute = variable_get('fb_media_browser_remove_absolute', TRUE);
+
+    $field = isset($_GET['fb_field']) ? $_GET['fb_field'] : '';
+
+    global $base_url;
+    $base_url_length = strlen($base_url);
+
+    $meta = array();
+    $i = 0;
+    foreach ($vars['rows'] as $row => $cols) {
+      foreach ($cols as $col => $data) {
+        if (isset($view->result[$i])) {
+          $tmp = (array) $view->result[$i];
+          $src = $tmp['image-orig/img/@src'];
+          $meta[$row][$col] = array(
+            $src
+          );
+          $i++;
+        }
+      }
+    }
+
+    $results = array(
+      'results' => $meta,
+      'default_style' => variable_get('fb_media_browser_default_style', 'thumbnail'),
+    );
+    $context = compact('view', 'field');
+    drupal_alter('fb_media_browser_results', $results, $context);
+
+    drupal_add_js(array('fb_media_browser' => $results), 'setting');
+    _fb_media_browser_load_resources_filefield();
+  }
+}
+
+/**
+ * Implements hook_element_info_alter().
+ */
+function fb_media_browser_element_info_alter(&$types) {
+  if (isset($types['managed_file']['#process'])) {
+    $types['managed_file']['#process'][] = 'fb_media_browser_pre_render_filefield_sources_element';
+  }
+}
+
+/**
+ * Add field instance settings for other parts of the machine to pick up.
+ */
+function fb_media_browser_pre_render_filefield_sources_element($element, $form_state) {
+  if (isset($element['#field_name']) && ($instance = field_widget_instance($element, $form_state))) {
+    $field = $element['#entity_type'] . '.' . $element['#bundle'] . '.' . $element['#field_name'];
+    // Add class to hide remote textfield.
+    $fb_hide_textfield = !empty($instance['widget']['settings']['filefield_sources']['source_remote']['fb_hide_textfield']);
+    if ($fb_hide_textfield) {
+      $element['filefield_remote']['url']['#attributes']['class'][] = 'fb-hide-remote';
+      $element['filefield_remote']['transfer']['#attributes']['class'][] = 'fb-hide-remote';
+    }
+    // Add field's meta data to field.
+    $element['filefield_remote']['url']['#attributes']['data-fb-field'] = $field;
+
+    // Undo part of file.module's validation.
+    $index = array_search('file_managed_file_validate', $element['#element_validate']);
+    if ($index !== FALSE) {
+      $element['#element_validate'][$index] = 'fb_media_browser_managed_file_validate';
+    }
+
+    // Load necessary resources for this page/form.
+    _fb_media_browser_load_resources_filefield();
+  }
+
+  return $element;
+}
+
+/**
+ * Widget validation to replace file.module's file_managed_file_validate.
+ */
+function fb_media_browser_managed_file_validate(&$element, &$form_state) {
+  $clicked_button = end($form_state['triggering_element']['#parents']);
+  if ($clicked_button != 'remove_button' && !empty($element['fid']['#value'])) {
+    if (!file_load($element['fid']['#value'])) {
+      form_error($element, t('The file remoted by the !name field does not exist.', array('!name' => $element['#title'])));
+    }
+  }
+
+  // Check required property based on the FID.
+  if ($element['#required'] && empty($element['fid']['#value']) && !in_array($clicked_button, array('upload_button', 'remove_button'))) {
+    form_error($element['upload'], t('!name field is required.', array('!name' => $element['#title'])));
+  }
+
+  // Consolidate the array value of this field to a single FID.
+  if (!$element['#extended']) {
+    form_set_value($element, $element['fid']['#value'], $form_state);
+  }
+}
+
+/**
+ * Helper to load necessary JS and CSS for filefield elements.
+ */
+function _fb_media_browser_load_resources_filefield() {
+  static $loaded = 0;
+  if (!$loaded) {
+    $loaded = 1;
+
+    drupal_add_library('system', 'ui.dialog');
+
+    $path = drupal_get_path('module', 'fb_media_browser');
+    drupal_add_js($path . '/fb_media_browser.js');
+    drupal_add_css($path . '/fb_media_browser.form.css');
+
+    $selector = variable_get('fb_media_browser_submit_button_selector', FB_MEDIA_BROWSER_SUBMIT_BUTTON_SELECTOR);
+    drupal_add_js(array('fbMediaBrowser' => array('submitButtonSelector' => $selector)), 'setting');
+  }
+}
+
+/**
+ * Helper to determine if a View is one of us.
+ */
+function _fb_media_browser_view_has_tag($view) {
+  if (is_object($view)) {
+    $tags = explode(' ', $view->tag);
+  }
+  elseif (is_string($view)) {
+    $tags = explode(' ', $view);
+  }
+  else {
+    $tags = $view;
+  }
+
+  return in_array(FB_MEDIA_BROWSER_VIEW_TAG, $tags);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for field_ui_field_edit_form().
+ */
+function fb_media_browser_form_field_ui_field_edit_form_alter(&$form, &$form_state) {
+  
+  $instance = $form['#instance'];
+  $settings = $instance['widget']['settings'];
+  //dpm($settings);
+  if (isset($form['instance']['widget']['settings']['filefield_sources'])) {
+    $element = &$form['instance']['widget']['settings']['filefield_sources'];
+
+    // Extend 'remote' option title to clarify this is what fb uses.
+    $element['filefield_sources']['#options']['remote'] .= ' (' . t('with FB Media Browser') . ')';
+
+    // Add option to hide FFS' remote textfield.
+    $fb_hide_textfield = !empty($settings['filefield_sources']['source_remote']['fb_hide_textfield']);
+    $element['source_remote']['fb_hide_textfield'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Hide remote textfield'),
+      '#default_value' => $fb_hide_textfield,
+      '#description' => t('Checked, this will hide the textfield & submit button and only show the &quot;Choose file&quot; button.'),
+    );
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function fb_media_browser_views_api() {
+  return array('api' => 3);
+}
+
+/**
+ * Implements hook_query_TAG_alter() for views_fb_media_browser.
+ */
+function fb_media_browser_query_views_visual_select_file_alter(QueryAlterableInterface $query) {
+  if (isset($_GET['fb_field'])) {
+    list($entity_type, $bundle, $field) = explode('.', $_GET['fb_field'] . '..');
+
+    if ($entity_type && $bundle && $field) {
+      $field_info = field_info_instance($entity_type, $field, $bundle);
+      if ($field_info && isset($field_info['settings']['file_extensions'])) {
+        $extensions = explode(' ' , $field_info['settings']['file_extensions']);
+
+        $or = db_or();
+
+        foreach ($extensions as $extension) {
+          $or->condition('file_managed.uri', '%.' . db_like($extension), 'LIKE');
+        }
+        $query->condition($or);
+      }
+    }
+  }
+}

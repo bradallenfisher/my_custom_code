@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the FB Cron feature.
+ */
+
+include_once 'fb_cron.features.inc';

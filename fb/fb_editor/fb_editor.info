@@ -1,0 +1,15 @@
+name = FB Editor
+description = WYSIWYG Profile for finance and business
+core = 7.x
+package = FB
+version = 7.x-1.0
+dependencies[] = ckeditor_link
+dependencies[] = features
+dependencies[] = filter
+dependencies[] = transliteration
+dependencies[] = wysiwyg
+dependencies[] = wysiwyg_template
+features[features_api][] = api:2
+features[filter][] = textbook_editor
+features[wysiwyg][] = textbook_editor
+features[wysiwyg_template][] = simple_button

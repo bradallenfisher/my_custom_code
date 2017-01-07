@@ -1,0 +1,31 @@
+<?php
+//This allows you to filter by the title of a node in a views select filter.
+function ohr_form_alter(&$form, &$form_state, $form_id) {
+
+  if($form_id == 'views_exposed_form'){
+
+    $view = $form_state['view'];
+
+    // This part is for the HR reps table.
+    if ($view->name == 'hr_representatives' && $view->current_display == 'page') {
+
+      $nodes = db_select('field_data_field_department', 'd')
+        ->fields('d', array('field_department_value'))
+        ->condition('bundle', 'hr_rep')
+        ->orderBy('d.field_department_value', 'ASC')
+        ->execute();
+
+      $dropdown_array = array('' => t('-- Any --'));
+        foreach ($nodes as $node) {
+          $dropdown_array[$node->field_department_value] = $node->field_department_value;
+        }
+
+      // Alter form
+      $form['field_department_value'] = array(
+        '#type' => 'select',
+        '#default_value' => '1',
+        '#options' => $dropdown_array,
+      );
+    }
+  }
+}

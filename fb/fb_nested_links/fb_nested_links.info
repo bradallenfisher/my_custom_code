@@ -1,0 +1,4 @@
+name = FB NESTED LINKS
+description = Override for second level pages
+package = FB
+core = 7.x

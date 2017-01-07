@@ -1,0 +1,4 @@
+name = SVG Logo
+description = Add support for a SVG Logo in the theme settings.
+package = Hospitality
+core = 7.x

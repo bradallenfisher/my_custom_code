@@ -1,0 +1,11 @@
+name = FB IMCE permissions
+description = Global permissions for the power users to use the file browser.
+core = 7.x
+package = FB
+version = 7.x-1.0
+dependencies[] = ctools
+dependencies[] = strongarm
+features[ctools][] = strongarm:strongarm:1
+features[features_api][] = api:2
+features[variable][] = imce_profiles
+features[variable][] = imce_roles_profiles

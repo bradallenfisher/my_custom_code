@@ -1,0 +1,143 @@
+<?php
+
+// get menu link children of current page. Assumes current page's path only exists in one menu
+function _fb_nested_links_get_menu_children($menu_name = '', $mlid = ''){
+  $children = array();
+
+  if($menu_name == '' or $mlid == ''){
+    $current = db_query("select menu_name, mlid from {menu_links} where link_path = :node", array(':node' => $_GET['q']));
+    $current_info = array();
+    foreach ($current as $value) {
+      $current_info[] = $value;
+    }
+  } else {
+    $obj = new stdClass;
+    $obj->menu_name = $menu_name;
+    $obj->mlid = $mlid;
+    $current_info = array($obj);
+  }
+
+  if($current_info) {
+    $result = db_query("select mlid, plid, link_path, link_title, menu_name from {menu_links} where menu_name=:menu and plid=:mlid and hidden=0 order by weight, link_title", array(':menu' => $current_info[0]->menu_name, ':mlid' => $current_info[0]->mlid));
+    foreach ($result as $row) {
+      $children[] = $row;
+    }
+  }
+  return $children;
+}
+
+// get node IDs of child pages (based on menu children)
+function _fb_nested_links_get_menu_children_nids($children){
+  $nids = array();
+  //$children = _fb_nested_links_get_menu_children();
+  foreach ($children as $value){
+    if( substr( $value->link_path, 0, 5 ) == 'node/' ){
+      $nids[] = substr( $value->link_path, 5 );
+    }
+  }
+  return $nids;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function fb_nested_links_block_info() {
+  $blocks = array();
+  $blocks['psuhfs_second_level'] = array(
+    'info' => t('PSU HFS Second Level Display'),
+  );
+
+  return $blocks;
+}
+
+
+/**
+ * Implements hook_block_view().
+ */
+function fb_nested_links_block_view($delta='') {
+
+  $block = array();
+
+  switch($delta) {
+    case 'psuhfs_second_level' :
+      $pa = drupal_get_path_alias();
+      $pa = explode("/", $pa);
+      if(count($pa)==1){
+        $block['content'] = array('#markup'=>_psuhfs_second_level_view());
+      }
+      break;
+  }
+
+  return $block;
+}
+
+/**
+ * Custom function to assemble renderable array for block content.
+ * Returns a renderable array with the block content.
+ * @return
+ *   returns a renderable array of block content.
+ */
+function _psuhfs_second_level_view() {
+  $content = '';
+
+
+  $node = menu_get_object();
+  // Check for valid node
+  if ($node && $node->nid) {
+    //get second level menu
+    $second_level = _fb_nested_links_get_menu_children();
+    $content = '<div id="second-level-container" '.(count($second_level)==0?'class="no-second-level-children"':'').'>';
+
+
+    foreach($second_level as $second_level_child){
+
+      if( substr( $second_level_child->link_path, 0, 5 ) == 'node/' ){
+
+        //get the node information
+        $second_level_nid = substr( $second_level_child->link_path, 5 );
+
+        $second_level_node = node_load($second_level_nid);
+
+        //get this node's children
+        $third_level_children  = _fb_nested_links_get_menu_children($second_level_child->menu_name, $second_level_child->mlid);
+        $second_level_child_alias = drupal_get_path_alias($second_level_child->link_path);
+
+        //build the content
+        $content .= '<div class="second-level-item">';
+
+        //image
+        if(array_key_exists('und', $second_level_node->field_page_image) and count($second_level_node->field_page_image['und'])){
+          $file_url = file_create_url($second_level_node->field_page_image['und'][0]['uri']);
+
+          $content .= '<div class="second-level-image"><a href="'.$second_level_child_alias.'"><img alt="'.$second_level_node->field_page_image['und'][0]['alt'].'" src="'.image_style_url('400x200', $second_level_node->field_page_image['und'][0]['uri']).'"/></a></div>';
+        }
+
+        //title
+        $content .= '<h2 class="second-level-title"><a href="'.$second_level_child_alias.'">'.$second_level_child->link_title.'</a></h2>';
+
+        //summary
+        if(array_key_exists('und', $second_level_node->body) and array_key_exists('summary', $second_level_node->body['und'][0]) and $second_level_node->body['und'][0]['summary']){
+          $content.= '<div class="second-level-body">'.$second_level_node->body['und'][0]['summary'].'</div>';
+        }
+
+        //children elements
+        $content .= '<div class="second-level-children '.(count($third_level_children)==0?'no-third-level-children':'').'">
+        <div class="second-level-children-header">LEARN MORE</div>
+        <ul>';
+
+        foreach($third_level_children as $third_level_child){
+          $third_level_child_alias = drupal_get_path_alias($third_level_child->link_path);
+          $content .= '<li><a href="'.$third_level_child_alias.'">&#x276f; '.$third_level_child->link_title.'</a></li>';
+        }
+        $content .= '</ul></div>';
+
+        $content.= '</div>';
+
+      }
+    }
+
+    $content .= '</div>';
+  }
+
+  return $content;
+}

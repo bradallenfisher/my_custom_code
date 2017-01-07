@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the FB News Feature Dependancies feature.
+ */
+
+include_once 'fb_news_feature_dependencies.features.inc';

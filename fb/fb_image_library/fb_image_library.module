@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the FB Image Library feature.
+ */
+
+include_once 'fb_image_library.features.inc';

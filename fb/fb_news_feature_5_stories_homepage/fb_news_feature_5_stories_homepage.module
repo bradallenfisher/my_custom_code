@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the FB News Feature 5 Stories Homepage feature.
+ */
+
+include_once 'fb_news_feature_5_stories_homepage.features.inc';

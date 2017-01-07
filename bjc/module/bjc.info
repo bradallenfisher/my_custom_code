@@ -1,0 +1,4 @@
+name = BJC Utility Code
+description = Custom code that the ui can't do on it's own
+core = 7.x
+package = BJC

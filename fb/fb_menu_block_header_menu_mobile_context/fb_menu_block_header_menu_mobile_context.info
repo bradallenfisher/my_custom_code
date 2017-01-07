@@ -1,0 +1,9 @@
+name = FB Menu Block - Header Menu Mobile Context
+core = 7.x
+package = FB
+dependencies[] = context
+dependencies[] = ctools
+dependencies[] = menu_block
+features[context][] = header_menu_mobile
+features[ctools][] = context:context:3
+features[features_api][] = api:2

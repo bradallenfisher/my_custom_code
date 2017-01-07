@@ -1,0 +1,4 @@
+name = FB SVG Logo
+description = Add support for a SVG Logo in the theme settings.
+package = FB
+core = 7.x

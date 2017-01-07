@@ -1,0 +1,29 @@
+<?php
+//This allows you to filter by the title of a node in a views select filter.
+function bjc_form_alter(&$form, &$form_state, $form_id) {
+  if($form_id == 'views_exposed_form'){
+
+    $view = $form_state['view'];
+
+    if ($view->name == 'seating_chart' && $view->current_display == 'block') {
+
+      $nodes = db_select('node', 'n')
+        ->fields('n', array('title'))
+        ->condition('type', 'seating_chart')
+        ->orderBy('n.title', 'ASC')
+        ->execute();
+
+      $dropdown_array = array('' => t('-- Any --'));
+        foreach ($nodes as $node) {
+          $dropdown_array[$node->title] = $node->title;
+        }
+
+      // Alter form
+      $form['title'] = array(
+        '#type' => 'select',
+        '#default_value' => '1',
+        '#options' => $dropdown_array,
+      );
+    }
+  }
+}

@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the FB IMCE permissions feature.
+ */
+
+include_once 'fb_imce_permissions.features.inc';

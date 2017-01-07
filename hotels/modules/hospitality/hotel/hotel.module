@@ -1,0 +1,274 @@
+<?php
+/**
+ * Implements Hook Menu
+ */
+
+function hotel_menu() {
+  $items = array();
+  $items['register'] = array(
+    'title' => t('Book Now'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('hotel_registration_form'),
+    'access callback' => TRUE,
+    'description' => 'The reservation system for hotels',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+// Custom registration form to pass values to synxis url.
+
+function hotel_registration_form($form, &$form_state) {
+  //format the date for later use in the form
+  $date = format_date(REQUEST_TIME, 'custom', 'Y-m-d H:i:s');
+
+  // Get the hostname for the hotels and add the appropriate onsubmit handler to the form markup.
+  $host = explode ( '.', $_SERVER['HTTP_HOST']);
+  $url = array_shift($host);
+
+  if($url == 'nittanylioninn') {
+    $onSub = "var s=s_gi('viznli.psu.edu');s.linkTrackVars='events';s.linkTrackEvents='event12';s.events='event12';s.tl(this,'o','check availability');";
+  }
+
+  if($url == 'thepennstaterhotel') {
+    $onSub = "var s=s_gi('vizthepennstaterhotel.psu.edu');s.linkTrackVars='events';s.linkTrackEvents='event12';s.events='event12';s.tl(this,'o','check availability');";
+  }
+
+  $form['#attributes']['onsubmit'] = $onSub;
+  $form['description'] = array(
+    '#type' => 'item',
+    '#title' => t('Book Now'),
+  );
+  $form['markup'] = array (
+    '#prefix' => t('<div class="field-prefix">Arrival</div>'),
+    '#markup' => '<span id="arrival">
+                  <span id="month">' . date('F') . '</span>
+                  <span id="day">' . date('j') . '</span>
+                  <span id="down"><i class="fa fa-chevron-down"></i></span>
+                  </span>',
+  );
+  $form['arrival_date'] = array(
+    '#type' => 'date_popup',
+    '#attributes' => array('readonly' => 'readonly'),
+    '#date_format' => 'F d Y',
+    '#title' => t('Arrival Date'),
+    '#required' => TRUE,
+    '#date_year_range' => '-0:+1',
+    '#default_value' => $date,
+    '#description' => '',
+  );
+  $form['nights_up'] = array(
+    '#prefix' => t('<div class="field-prefix">Nights</div>'),
+    '#type' => 'button',
+    '#value' => t('+'),
+    '#attributes' => array('onclick' => 'return (false);'),
+  );
+  $form['nights'] = array(
+    '#type' => 'numberfield',
+    '#min' => 1,
+    '#max' => 20,
+    '#precision' => 1,
+    '#default_value' => t(1),
+  );
+  $form['nights_down'] = array(
+    '#prefix' => t('<div class="field-suffix-nights">'),
+    '#type' => 'button',
+    '#value' => t('-'),
+    '#attributes' => array('onclick' => 'return (false);'),
+    '#suffix' => '</div>',
+  );
+  $form['adult_up'] = array(
+    '#prefix' => t('<div class="field-prefix">Adults</div>'),
+    '#type' => 'button',
+    '#value' => t('+'),
+    '#attributes' => array('onclick' => 'return (false);'),
+  );
+  $form['adult'] = array(
+    '#type' => 'numberfield',
+    '#min' => 1,
+    '#max' => 20,
+    '#precision' => 1,
+    '#default_value' => t(1),
+  );
+  $form['adult_down'] = array(
+    '#prefix' => t('<div class="field-suffix-adults">'),
+    '#type' => 'button',
+    '#value' => t('-'),
+    '#attributes' => array('onclick' => 'return (false);'),
+    '#suffix' => '</div>',
+  );
+  $form['child_up'] = array(
+    '#prefix' => t('<div class="field-prefix">Children</div>'),
+    '#type' => 'button',
+    '#value' => t('+'),
+    '#attributes' => array('onclick' => 'return (false);'),
+  );
+  $form['child'] = array(
+    '#type' => 'numberfield',
+    '#min' => 0,
+    '#max' => 20,
+    '#precision' => 1,
+    '#default_value' => t(0),
+  );
+  $form['child_down'] = array(
+    '#prefix' => t('<div class="field-suffix-child">'),
+    '#type' => 'button',
+    '#value' => t('-'),
+    '#attributes' => array('onclick' => 'return (false);'),
+    '#suffix' => '</div>',
+  );
+  $form['group_code'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Group Code'),
+    '#size' => 20,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Check Availability'),
+  );
+
+  $form['modify'] = array(
+    '#type' => 'submit',
+    '#value' => t('Modify or Cancel Existing Reservation'),
+    '#submit' => array('hotel_registration_form_modify'),
+    '#limit_validation_errors' => array(),
+  );
+  return $form;
+}
+
+/**
+ * Validation function for hotel_registration_form().
+ */
+function hotel_registration_form_validate($form, &$form_state) {
+  // Values That need to be passed in.
+  $arrival = $form_state['values']['arrival_date'];
+  $nights  = $form_state['values']['nights'];
+  $adult   = $form_state['values']['adult'];
+  $child   = $form_state['values']['child'];
+  $group   = $form_state['values']['group_code'];
+
+  //must be a number guy!
+  if(!is_numeric($nights)) {
+    form_set_error('nights', t('Good try chief, please enter a number only.'));
+  }
+
+  //must be number guy!
+  if(!is_numeric($adult)) {
+    form_set_error('adult', t('Good try chief, but please enter a number only.'));
+  }
+
+  if($nights < 1) {
+    form_set_error('nights', t('So... you aren\'t planning on staying very long, eh?'));
+  }
+
+  if($adult < 1) {
+    form_set_error('nights', t('Hold up, we require at least one adult. Please try again'));
+  }
+
+}
+
+/**
+ * Submit function for hotel_registration_form().
+ */
+function hotel_registration_form_submit($form, &$form_state) {
+  // Get the hostname for the hotels.
+  $host = explode ( '.', $_SERVER['HTTP_HOST']);
+  $url = array_shift($host);
+
+  // Values That need to be passed in.
+  $arrival = $form_state['values']['arrival_date'];
+  $nights  = $form_state['values']['nights'];
+  $adult   = $form_state['values']['adult'];
+  $child   = $form_state['values']['child'];
+  $group   = $form_state['values']['group_code'];
+
+  //https://www.phgsecure.com/IBE/bookingRedirect.ashx?propertyCode=SCENL&arrivalDate=05/31/2016&numberOfNights=2&numberOfAdults=2&numberOfChildren=1
+  //NLI
+  if($url == 'nittanylioninn' || $url == 'fbstaging') {
+    $form_state['redirect'] = array(
+      'https://www.phgsecure.com/IBE/bookingRedirect.ashx',
+      array(
+        'query' => array(
+          'propertyCode' => 'SCENL',
+          'arrivalDate' => $arrival,
+          'numberOfNights' => $nights,
+          'numberOfAdults' => $adult,
+          'numberOfChildren' => $child,
+          'avcurrency' => 'USD',
+          'group' => $group,
+        ),
+      ),
+    );
+  }
+  //PSH
+  if($url == 'thepennstaterhotel') {
+    $form_state['redirect'] = array(
+      'https://gc.synxis.com/rez.aspx',
+      array(
+        'query' => array(
+          'hotel' => '475',
+          'chain' => '475',
+          'start' => 'availresults',
+          'arrive' => $arrival,
+          'nights' => $nights,
+          'adult' => $adult,
+          'child' => $child,
+          'lang' => '1',
+          'group' => $group,
+        ),
+      ),
+    );
+  }
+}
+
+/**
+ * Back button handler submit handler.
+ */
+
+function hotel_registration_form_modify($form, &$form_state) {
+  // Get the hostname for the hotels.
+  $host = explode ( '.', $_SERVER['HTTP_HOST']);
+  $url = array_shift($host);
+
+  //NLI
+  if($url == 'nittanylioninn' || $url == 'fbstaging') {
+    $form_state['redirect'] = 'https://www.phgsecure.com/IBE/reservationRedirect.ashx?propertyCode=SCENL';
+  }
+
+  //PSH
+  if($url == 'thepennstaterhotel') {
+    $form_state['redirect'] = 'https://gc.synxis.com/rez.aspx?Hotel=475&Chain=475&start=searchres';
+  }
+}
+
+/**
+ * Implements hook_block_info().
+ */
+
+function hotel_block_info() {
+  // This example comes from node.module.
+  $blocks['hotel_registration_form'] = array(
+    'info' => t('Hotel Registration Form'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+
+function hotel_block_view($delta='') {
+
+  $block = array();
+
+  switch($delta) {
+    case 'hotel_registration_form' :
+      $block['content'] = drupal_get_form('hotel_registration_form');
+      break;
+  }
+
+  return $block;
+}

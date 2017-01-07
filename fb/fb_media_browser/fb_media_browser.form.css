@@ -1,0 +1,28 @@
+
+/**
+ * Built for Seven.
+ */
+
+/**
+ * Entity form page.
+ */
+
+.fb-hide-remote {
+	visibility: hidden;
+	position: absolute;
+	z-index: -1;
+}
+
+.fb-modal {
+  position: fixed;
+}
+.fb-modal > .ui-dialog-content {
+  overflow: visible;
+  padding: 10px;
+}
+.fb-modal .ui-button-text-only .ui-button-text {
+  padding: 0;
+}
+.vertical-tabs .form-type-textfield input {
+  width: inherit;
+}

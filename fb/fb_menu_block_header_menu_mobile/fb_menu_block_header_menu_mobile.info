@@ -1,0 +1,4 @@
+name = FB Header Menu Mobile
+description = Add the header menu to the site as a menu block
+core = 7.x
+package = FB

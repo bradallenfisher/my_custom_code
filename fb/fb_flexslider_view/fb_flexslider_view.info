@@ -1,0 +1,13 @@
+name = FB Flexslider View
+description = Finance and Business Flexslider View
+core = 7.x
+package = FB
+dependencies[] = ctools
+dependencies[] = flexslider
+dependencies[] = flexslider_views
+dependencies[] = views
+features[ctools][] = flexslider:flexslider_default_preset:1
+features[ctools][] = views:views_default:3.0
+features[features_api][] = api:2
+features[flexslider_optionset][] = home_page_flexslider
+features[views_view][] = slider_block_on_home_page

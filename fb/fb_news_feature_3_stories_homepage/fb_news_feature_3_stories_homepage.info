@@ -1,0 +1,12 @@
+name = FB News Feature 3 Stories Homepage
+description = This will place 3 feature stories on the home page and assign all blocks to the right regions for FB News 2.0
+core = 7.x
+package = FB
+version = 7.x-2.0
+dependencies[] = context
+dependencies[] = ctools
+dependencies[] = fb_news_feed
+features[context][] = fb_news_feed_3_stories_homepage
+features[ctools][] = context:context:3
+features[ctools][] = strongarm:strongarm:1
+features[features_api][] = api:2

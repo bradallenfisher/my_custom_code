@@ -1,0 +1,17 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function fb_media_browser_install() {
+  variable_set('fb_media_browser_public_is_public', 1);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function fb_media_browser_uninstall() {
+  variable_del('fb_media_browser_public_submit_button_selector');
+  variable_del('fb_media_browser_public_remove_absolute');
+  variable_del('fb_media_browser_public_default_style');
+}

@@ -1,0 +1,381 @@
+<?php
+/**
+ * This module pulls in a JSON array and renders it as HTML in a block.
+ */
+
+/**
+ * Implements hook_menu().
+ *
+ * We are creating pages using this function.
+ */
+function fb_news_feed_menu() {
+  //Create a landing page for a single feature taken out of the feed that we are pulling in. The page arguments is the real magic here.
+  //We specify the argument in the call back function _fb_news_feed_landing_page. Search for that in this module to see what is happening.
+  $items['feature-story/%'] = array(
+    'description' => 'The page callback will use the % symbol as a placeholder for the path',
+    'page callback' => '_fb_news_feed_landing_page',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'weight' => 40,
+  );
+  //Create a landing page for all features taken out of the feed that we are pulling in.
+  $items['feature-story/all'] = array(
+    'description' => 'The page callback will use the % symbol as a placeholder for the path',
+    'page callback' => '_fb_news_feed_all',
+    'access callback' => TRUE,
+    'weight' => 40,
+  );
+
+  return $items;
+}
+
+function _fb_news_feed_landing_page($arg) {
+ $output = '';
+ return $output;
+}
+
+function _fb_news_feed_all() {
+ $output = '';
+ return $output;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+
+function fb_news_feed_block_info() {
+  // you need to tell Drupal about the blocks you want to display.
+  // The info key is what you will choose when you use context or the block settings page to place a block in a region.
+  $blocks['fb_news_feed_3_hp_block'] = array(
+    'info' => t('FB News Feed 3 Items Home Page Block'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['fb_news_feed_3_sb_block'] = array(
+    'info' => t('FB News Feed 3 Items Side Bar Block'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['fb_news_feed_5_hp_block'] = array(
+    'info' => t('FB News Feed 5 Items Home Page Block'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['fb_news_feed_landing_page_block'] = array(
+    'info' => t('FB News Feed Landing Page Block'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['fb_news_feed_all_block'] = array(
+    'info' => t('FB News Feed All Block'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+
+function fb_news_feed_block_view($delta = '') {
+
+  $block = array();
+  // this is how you can create multiple blocks in one module.
+  // The $delta is the block name that you would normally create in your add custom block section using the UI.
+  // Below we have created several blocks and they return a function that creates markup for the page.
+  // Once you assign the block the page using context or the block settings page the markup will be generated in the region you specify.
+  switch($delta) {
+    // the 3 story feed function.
+    case 'fb_news_feed_3_hp_block' :
+      $block['content'] = array('#markup'=>_fb_news_feed_3_hp_block());
+      break;
+    case 'fb_news_feed_3_sb_block' :
+      $block['content'] = array('#markup'=>_fb_news_feed_3_sb_block());
+      break;
+    // the 5 story feed function.
+    case 'fb_news_feed_5_hp_block' :
+      $block['content'] = array('#markup'=>_fb_news_feed_5_hp_block());
+      break;
+    case 'fb_news_feed_landing_page_block' :
+      $block['content'] = array('#markup'=>_fb_news_feed_landing_page_block());
+      break;
+    case 'fb_news_feed_all_block' :
+      $block['content'] = array('#markup'=>_fb_news_feed_all_block());
+      break;
+  }
+
+  return $block;
+}
+
+function _fb_news_feed_landing_page_block() {
+  // This is an absolute must for this module. It checks the second position in the uri and if it matches
+  // the path from the news service it will return the page.
+  $arg = check_plain(arg(1));
+  //add the javascript and the css for the gallery on the bottom of a news story if it has one.
+  drupal_add_js(drupal_get_path('module', 'fb_news_feed') . '/jquery.magnific-popup.min.js');
+  drupal_add_js(drupal_get_path('module', 'fb_news_feed') . '/magnific-popup.js');
+  drupal_add_css(drupal_get_path('module', 'fb_news_feed') . '/magnific-popup.css');
+
+  // We are using a block in context here so we need to invoke it.
+  $block = module_invoke('rrssb', 'block_view', 'rrssb');
+  // Get the hostname for the organic group names.
+  // Each story is tied to an organic group from fandbnews
+
+  $host = explode ( '.', $_SERVER['HTTP_HOST']);
+  $site = array_shift($host);
+
+
+  $json = "http://fandbnews.psu.edu/feed-page/$site/json";
+
+  // Retreive and parse the json from URL.
+  $request = drupal_http_request($json);
+  // Decode the data from the request.
+  $feed = drupal_json_decode($request->data);
+
+  //clear the output and start appending data to it.
+  $output = '';
+
+  $output .= '<div class="feed-wrapper-landing">';
+
+  foreach($feed['nodes'] as $item) {
+    $path_with_slash = $item['node']['path'];
+    $path = str_replace('/', '', $path_with_slash);
+
+    if (isset($path) && $path == $arg) {
+      $output .= '<h1 class="title">' . $item['node']['title'] . '</h1>';
+      $output .= '<img class="image" src="'.$item['node']['image']['src'].'" alt="'.$item['node']['image']['alt'].'"/>';
+      $output .= $block['content']['#markup'];
+      $output .= '<div class="date">'.$item['node']['newsdate']. '</div>';
+
+      $output .= '<div class="body">' . $item['node']['body']. '</div>';
+
+      // Gallery start
+      $output .= '<div class="popup-gallery">';
+      $output  .= '<div class="mfp-gallery-image">';
+      // Set the gallery images up
+      $gallery_item = $item['node']['gallery'];
+      $gallery_item_thumb = $item['node']['gallery-thumbs'];
+
+      if(isset($gallery_item[0])) {
+        // Loop through each on of the images using the index from the main gallery image.
+        foreach($item['node']['gallery'] as $index => $gallery_item) {
+          $output .= '<a href="'.$gallery_item['src'].'" title="'.$gallery_item['alt'].'"><img src="'.$gallery_item_thumb[$index]['src'].'"></a>';
+        }
+      }
+
+      if(!isset($gallery_item[0])) {
+        $output .= '<a href="'.$gallery_item['src'].'" title="'.$gallery_item['alt'].'"><img src="'.$gallery_item_thumb['src'].'"></a>';
+      }
+
+      $output .= '</div>';
+      $output .= '</div>';
+      // Gallery end
+      $output .= '<a href="#" onclick="printPage()">Print this page</a>';
+      $output .= '<script>function printPage() {window.print();}</script>';
+    }
+
+  }
+
+  $output .= '</div>';
+
+  return $output;
+
+}
+
+/**
+ * Page callback for the landing page that will display all news stories paged by 20.
+ */
+
+function _fb_news_feed_all_block() {
+  $output = '';
+
+  // Get the hostname for the campus codes.
+  $host = explode ( '.', $_SERVER['HTTP_HOST']);
+  $site = array_shift($host);
+
+  // The resource URL. We created this using views datasource module on fandbnews.psu.edu
+  // Switch this to the live url when done testing.
+  $json = "http://fandbnews.psu.edu/feed-all/$site/json";
+
+  // Retreive and parse the json from URL.
+  $request = drupal_http_request($json);
+  // Decode the data from the request.
+  $feed = drupal_json_decode($request->data);
+
+  $output .= '<h1 class="title">Features</h1>';
+
+  $output .= '<div class="feed-wrapper-all">';
+
+  foreach($feed['nodes'] as $item) {
+    // We have to strip the slash from the beginning of the url so it doesn't add a double slash.
+    $path_with_slash = $item['node']['path'];
+    $path = str_replace('/', '', $path_with_slash);
+
+    // Here we are creating the output string that will have the content for each news story.
+    $output .= '<div class="feed-item">';
+    $output .= '<a href="/feature-story/'.$path.'">'.'<img class="image" src="'.$item['node']['image']['src'].'" alt="'.$item['node']['image']['alt'].'"/></a>';
+    $output .= '<h3 clas="field-content">
+                  <a href="/feature-story/'.$path.'">'. $item['node']['title'].'</a>
+                </h3>';
+    $output .= '<div class="date">'.$item['node']['newsdate']. '</div>';
+    $output .= '<div class="body">' . $item['node']['body']. '</div>';
+    $output .= '</div>';
+
+  }
+  $output .= '</div>';
+
+  return $output;
+}
+
+/**
+ * Custom function to assemble renderable array for block content.
+ * We declared this function as a callback in the fb_news_feed_block_view function.
+ * This block in particular returns 3 items from the json feed created by views datasource on fandbnews.
+ * Returns a renderable array with the block content.
+ * @return
+ *   returns a renderable array of block content.
+ */
+
+function _fb_news_feed_3_hp_block() {
+  $output = '';
+
+  // Get the hostname for the campus codes.
+  $host = explode ( '.', $_SERVER['HTTP_HOST']);
+  $site = array_shift($host);
+
+  // The resource URL. We created this using views datasource module on fandbnews.psu.edu
+  // Switch this to the live url when done testing.
+  $json = "http://fandbnews.psu.edu/feed-3-hp/$site/json";
+
+  // Retreive and parse the json from URL.
+  $request = drupal_http_request($json);
+  // Decode the data from the request.
+  $feed = drupal_json_decode($request->data);
+
+  // Start to build the output that will appear on the page.
+  $output .= '<div class="features-header">
+                <span>Features</span>
+                <span><a href="/feature-story/all">View All &gt;&gt;</a></span>
+              </div>';
+  $output .= '<div class="feed-wrapper-3-hp">';
+
+  foreach($feed['nodes'] as $item) {
+    // We have to strip the slash from the beginning of the url so it doesn't add a double slash.
+    $path_with_slash = $item['node']['path'];
+    $path = str_replace('/', '', $path_with_slash);
+
+    // Here we are creating the output string that will have the content for each news story.
+    $output .= '<div class="feed-item">';
+    $output .= '<a href="/feature-story/'.$path.'">'.'<img class="image" src="'.$item['node']['image']['src'].'" alt="'.$item['node']['image']['alt'].'"/></a>';
+    $output .= '<h3 clas="field-content">
+                  <a href="/feature-story/'.$path.'">'. $item['node']['title'].'</a>
+                </h3>';
+    $output .= '<div class="date">'.$item['node']['newsdate']. '</div>';
+    $output .= '<div class="body">' . $item['node']['body']. '</div>';
+    $output .= '</div>';
+
+  }
+  $output .= '</div>';
+
+  return $output;
+}
+/**
+ * Custom function to assemble renderable array for block content.
+ * We declared this function as a callback in the fb_news_feed_block_view function.
+ * This block in particular returns 3 items from the json feed created by views datasource on fandbnews.
+ * Returns a renderable array with the block content.
+ * @return
+ *   returns a renderable array of block content.
+ */
+
+function _fb_news_feed_3_sb_block($arg) {
+  $output = '';
+
+  // Get the hostname for the campus codes.
+  $host = explode ( '.', $_SERVER['HTTP_HOST']);
+  $site = array_shift($host);
+
+  // The resource URL. We created this using views datasource module on fandbnews.psu.edu
+  // Switch this to the live url when done testing.
+  $json = "http://fandbnews.psu.edu/feed-3-sb/$site/json";
+
+  // Retreive and parse the json from URL.
+  $request = drupal_http_request($json);
+  // Decode the data from the request.
+  $feed = drupal_json_decode($request->data);
+
+  // Start to build the output that will appear on the page.
+  $output .= '<div class="features-header">
+                <span>More Features</span>
+                <span><a href="/feature-story/all">View All &gt;&gt;</a></span>
+              </div>';
+  $output .= '<div class="feed-wrapper-3-sb">';
+
+  foreach($feed['nodes'] as $item) {
+    // We have to strip the slash from the beginning of the url so it doesn't add a double slash.
+    $path_with_slash = $item['node']['path'];
+    $path = str_replace('/', '', $path_with_slash);
+
+    // Here we are creating the output string that will have the content for each news story.
+    if (isset($path) && $path != arg(1)) {
+      $output .= '<div class="feed-item">';
+      $output .= '<a href="/feature-story/'.$path.'">'.'<img class="image" src="'.$item['node']['image']['src'].'" alt="'.$item['node']['image']['alt'].'"/></a>';
+      $output .= '<h3 clas="field-content">
+                    <a href="/feature-story/'.$path.'">'. $item['node']['title'].'</a>
+                  </h3>';
+      $output .= '</div>';
+    }
+
+  }
+  $output .= '</div>';
+
+  return $output;
+}
+
+/**
+ * Custom function to assemble renderable array for block content.
+ * This block in particular returns 5 items from the json feed created by views datasource on fandbnews.
+ * Returns a renderable array with the block content.
+ * @return
+ *   returns a renderable array of block content.
+ */
+
+function _fb_news_feed_5_hp_block() {
+  $output = '';
+
+  // Get the hostname for the campus codes.
+  $host = explode ( '.', $_SERVER['HTTP_HOST']);
+  $site = array_shift($host);
+
+  // The resource URL. We created this using views datasource module on fandbnews.psu.edu
+  // Switch this to the live url when done testing.
+  $json = "http://fandbnews.psu.edu/feed-5-hp/$site/json";
+
+  // Retreive and parse the json from URL.
+  $request = drupal_http_request($json);
+  // Decode the data from the request.
+  $feed = drupal_json_decode($request->data);
+  $output .= '<div class="features-header">
+                <span>Features</span>
+                <span><a href="/feature-story/all">View All &gt;&gt;</a></span>
+              </div>';
+  $output .= '<div class="feed-wrapper-5-hp">';
+
+  foreach($feed['nodes'] as $item) {
+    // We have to strip the slash from the beginning of the url so it doesn't add a double slash.
+    $path_with_slash = $item['node']['path'];
+    $path = str_replace('/', '', $path_with_slash);
+
+    // Here we are creating the output string that will have the content for each news story.
+    $output .= '<div class="feed-item">';
+    $output .= '<a href="/feature-story/'.$path.'">'.'<img class="image" src="'.$item['node']['image']['src'].'" alt="'.$item['node']['image']['alt'].'"/></a>';
+    $output .= '<h3 clas="field-content">
+                  <a href="/feature-story/'.$path.'">'. $item['node']['title'].'</a>
+                </h3>';
+    $output .= '<div class="date">'.$item['node']['newsdate']. '</div>';
+    $output .= '<div class="body">' . $item['node']['body']. '</div>';
+    $output .= '</div>';
+
+  }
+  $output .= '</div>';
+
+  return $output;
+}
